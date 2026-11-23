@@ -66,6 +66,8 @@ main{padding-top:20px}
 .split{border:2px solid var(--pri)}.sp2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:10px}.sp2 div{background:var(--soft);border-radius:12px;padding:12px}.sp2 b{display:block;font:700 17px Archivo}.sp2 span{color:var(--mut);font-size:14px}
 h3.grp{color:var(--pri)}
 .ro .edonly,.ro [data-new],.ro [data-wake],.ro #fC,.ro [data-delc],.ro [data-delco],.ro .addco{display:none!important}.ro .row,.ro .card{cursor:default}
+.tks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center;padding:14px}.tks b{display:block;font:800 28px Archivo;color:var(--pri)}.tks span{font-size:13px;color:var(--mut)}
+.chk select{width:auto;max-width:46%;flex:none;font-size:14px;min-height:40px;padding:6px 8px}.tk-sacar{border-color:var(--hot)}.tk-sacar select{color:#c62f17;font-weight:600}.tk-ok span{color:var(--mut)}.tk-ok select{color:var(--ok);font-weight:600}.tk-no{opacity:.6}
 .empty{color:var(--mut);background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:18px;text-align:center}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:20px}
 .cal .dn{font:600 12px Inter;color:var(--mut);text-align:center;padding:4px 0}
@@ -146,6 +148,9 @@ Croacia:{m:"Euro (EUR)",e:"112",p:"C y F · 230 V",tip:"Opcional, 10 % en restau
 
 let S={items:[],checklist:[],config:{}};
 let DONE={};try{DONE=JSON.parse(localStorage.getItem("viaje-done")||"{}")}catch(e){}
+let TK={},TKX=[];try{TK=JSON.parse(localStorage.getItem("viaje-tk")||"{}");TKX=JSON.parse(localStorage.getItem("viaje-tkx")||"[]")}catch(e){}
+const saveTK=()=>{try{localStorage.setItem("viaje-tk",JSON.stringify(TK));localStorage.setItem("viaje-tkx",JSON.stringify(TKX))}catch(e){}};
+const TKS=[["","Sin definir"],["sacar","Hay que sacar"],["ok","Ya está"],["no","No hace falta"]];
 const me="Todos";
 let db=null,dbState="cargando",dayCursor=null;
 const $=s=>document.querySelector(s);
@@ -168,7 +173,7 @@ const cfg=()=>Object.assign({name:"Viaje a Europa",start:"2026-12-28",end:"2027-
 /* entries for a day: starts + arrivals/check-outs */
 function entries(day){const out=[];
  for(const it of S.items){if(!mine(it))continue;
-  if(it.date===day)out.push({it,kind:"start",ms:toMs(it.date,it.time,it.tz),time:it.time,tz:it.tz});
+  if(it.date===day)out.push({it,kind:"start",ms:toMs(it.date,it.time||it.sortTime,it.tz),time:it.time,tz:it.tz});
   if(it.endDate&&it.endDate===day&&it.endDate!==it.date)out.push({it,kind:it.type==="hotel"?"checkout":"arrive",ms:toMs(it.endDate,it.endTime,it.endTz||it.tz),time:it.endTime,tz:it.endTz||it.tz});}
  return out.sort((a,b)=>(a.ms||0)-(b.ms||0))}
 function rowHTML(e,ctx){const it=e.it,now=Date.now();
@@ -197,7 +202,7 @@ function dayList(day,title){const es=entries(day).filter(e=>!e.it.split),isToday
  const groups=[];for(const e of es){const k=whoTxt(e.it.who);let g=groups.find(x=>x.k===k);if(!g){g={k,es:[]};groups.push(g)}g.es.push(e)}
  groups.sort((a,b)=>(a.k==="Todos"?0:1)-(b.k==="Todos"?0:1));
  const multi=groups.length>1||groups.length===1&&groups[0].k!=="Todos";
- return `<h2>${esc(title)}</h2><p class="sub">${esc(fmtDay(day))}</p>${splitBanner(day)}
+ return `<h2>${esc(title)}</h2><p class="sub">${esc(fmtDay(day))}${cityTxt(day)?" · <b>"+esc(cityTxt(day))+"</b>":""}</p>${splitBanner(day)}
  ${es.length?groups.map(g=>(multi?`<h3 class="grp">${g.k==="Todos"?"Todos juntos":"Lo que tienen que hacer "+esc(g.k)}</h3>`:"")+g.es.map(e=>rowHTML(e,{isToday,next})).join("")).join(""):`<div class="empty">No hay nada cargado para este día.</div>`}
  <div class="bar" style="margin-top:12px"><button class="btn" data-new="${day}">Agregar actividad</button><button class="btn ghost" data-wake="${day}">Agregar hora de despertarse</button></div>`}
 function vHoy(){const c=cfg(),t=today(),startMs=toMs(c.start,"00:00","America/Argentina/Buenos_Aires");let h="";
@@ -215,8 +220,11 @@ function vManana(){const t=addDays(today(),1),es=entries(t);const wake=es.find(e
  let h="";if(!wake)h+=`<div class="hero"><b>Todavía no hay hora de despertarse para mañana.</b><p class="sub edonly" style="margin:4px 0 10px">Cargala para que todos la vean al abrir la app.</p><button class="btn" data-wake="${t}">Poner despertador</button></div>`;
  else h+=`<div class="hero"><div class="note">Mañana se levantan a las</div><div class="big">${esc(wake.time)}</div><div class="sub" style="margin:6px 0 0">${esc(whoTxt(wake.it.who))}</div></div>`;
  return h+dayList(t,"Mañana")}
+function staysOn(day){return (cfg().stays||[]).filter(s=>day>=s.from&&day<s.to)}
+function cityTxt(day){return staysOn(day).map(s=>s.city+(s.who&&s.who.length&&s.who.length<PEOPLE.length?" ("+whoTxt(s.who)+")":"")).join(" · ")}
 function vCal(){const c=cfg();let s=c.start,e=c.end;for(const it of S.items){if(it.date&&it.date<s)s=it.date;const z=it.endDate||it.date;if(z&&z>e)e=z}
  const city={};for(const it of S.items)if(it.type==="hotel"&&it.date&&mine(it)){let d=it.date;const end=it.endDate||it.date;let n=0;while(d<end&&n<60){city[d]=it.city||it.title;d=addDays(d,1);n++}}
+ for(const st of (c.stays||[])){let d=st.from,n=0;while(d<st.to&&n<60){city[d]=(city[d]?city[d]+" · ":"")+st.city;d=addDays(d,1);n++}}
  let[y,m]=s.split("-").map(Number);const[ey,em]=e.split("-").map(Number);let h=`<h2>Calendario</h2><p class="sub">${esc(shortDay(c.start))} → ${esc(shortDay(c.end))} · tocá un día para verlo</p>`;
  while(y<ey||y===ey&&m<=em){const first=new Date(y,m-1,1),dim=new Date(y,m,0).getDate(),off=(first.getDay()+6)%7;
   h+=`<h3>${first.toLocaleDateString("es-AR",{month:"long",year:"numeric"})}</h3><div class="cal">`+["L","M","M","J","V","S","D"].map(x=>`<div class="dn">${x}</div>`).join("")+`<div class="blank"></div>`.repeat(off);
@@ -228,8 +236,14 @@ function vRes(){const its=S.items.filter(it=>mine(it)&&RES_TYPES.includes(it.typ
  return `<h2>Reservas</h2><p class="sub">Vuelos, trenes, alojamientos y entradas con sus códigos.</p>`+(its.length?its.map(it=>`<div class="card" data-edit="${esc(it.id)}" style="cursor:pointer"><div class="line"><div><span class="pill">${esc(TN[it.type])}</span>${it.tbd?'<span class="pill tbd">A confirmar</span>':""}<div class="tt" style="font-weight:600;margin-top:4px">${esc(it.title)}</div>
  <div class="note">${esc(shortDay(it.date))} ${esc(it.time||"")} (${esc(TZN[it.tz]||"")})${it.endDate?" → "+esc(shortDay(it.endDate))+" "+esc(it.endTime||"")+" ("+esc(TZN[it.endTz||it.tz]||"")+")":""}</div><div class="note">${esc(whoTxt(it.who))}${it.place?" · "+esc(it.place):""}</div></div>
  ${it.code?`<div style="text-align:right"><div class="code">${esc(it.code)}</div><button class="btn ghost" data-copy="${esc(it.code)}" style="margin-top:6px">Copiar</button></div>`:`<div class="note">Sin código</div>`}</div></div>`).join(""):`<div class="empty">Todavía no hay reservas.</div>`)+`<div class="bar" style="margin-top:12px"><button class="btn" data-new="${cfg().start}" data-ntype="vuelo">Agregar reserva</button></div>`}
+function vTickets(){const all=[...(cfg().tickets||[]),...TKX.map(x=>Object.assign({mine:true},x))],cats={};for(const t of all)(cats[t.cat||"Otros"]=cats[t.cat||"Otros"]||[]).push(t);
+ const cnt=k=>all.filter(t=>(TK[t.id]||"")===k).length;
+ return `<h2>Entradas y reservas</h2><p class="sub">Marcá qué hay que sacar, qué ya está y qué no hace falta. Se guarda en tu teléfono.</p>
+ <div class="hero tks"><div><b>${cnt("sacar")}</b><span>hay que sacar</span></div><div><b>${cnt("ok")}</b><span>ya están</span></div><div><b>${cnt("")}</b><span>sin definir</span></div></div>`+
+ Object.entries(cats).map(([c,xs])=>`<h3>${esc(c)}</h3>`+xs.map(t=>`<div class="chk tk-${TK[t.id]||"x"}"><span>${esc(t.text)}${t.who?` <span class="pill">${esc(t.who)}</span>`:""}</span><select data-tk="${esc(t.id)}" aria-label="Estado de ${esc(t.text)}">${TKS.map(([k,v])=>`<option value="${k}" ${(TK[t.id]||"")===k?"selected":""}>${v}</option>`).join("")}</select>${t.mine?`<button class="x" data-deltk="${esc(t.id)}" aria-label="Borrar">×</button>`:""}</div>`).join("")).join("")+
+ `<form id="fTK" class="card" style="margin-top:18px"><label for="tkT">Agregar algo para sacar</label><input id="tkT" required placeholder="Ej.: entradas al museo X"><label for="tkC">Grupo</label><input id="tkC" value="Otros"><button class="btn" style="margin-top:12px">Agregar</button></form>`}
 function vListas(){const cats={};for(const x of S.checklist){if(!(me==="Todos"||!x.who||x.who==="Todos"||x.who===me))continue;(cats[x.cat||"General"]=cats[x.cat||"General"]||[]).push(x)}
- return `<h2>Listas</h2><p class="sub">Documentos, equipaje y pendientes. Lo que tachás queda guardado solo en tu teléfono.</p>`+Object.entries(cats).map(([c,xs])=>`<h3>${esc(c)}</h3>`+xs.sort((a,b)=>(DONE[a.id]?1:0)-(DONE[b.id]?1:0)).map(x=>`<div class="chk ${DONE[x.id]?"done":""}"><input type="checkbox" data-chk="${esc(x.id)}" ${DONE[x.id]?"checked":""} aria-label="Hecho"><span>${esc(x.text)}${x.who&&x.who!=="Todos"?` <span class="pill">${esc(x.who)}</span>`:""}</span><button class="x" data-delc="${esc(x.id)}" aria-label="Borrar">×</button></div>`).join("")).join("")+
+ return vTickets()+`<h2 style="margin-top:32px">Listas</h2><p class="sub">Documentos, equipaje y pendientes. Lo que tachás queda guardado solo en tu teléfono.</p>`+Object.entries(cats).map(([c,xs])=>`<h3>${esc(c)}</h3>`+xs.sort((a,b)=>(DONE[a.id]?1:0)-(DONE[b.id]?1:0)).map(x=>`<div class="chk ${DONE[x.id]?"done":""}"><input type="checkbox" data-chk="${esc(x.id)}" ${DONE[x.id]?"checked":""} aria-label="Hecho"><span>${esc(x.text)}${x.who&&x.who!=="Todos"?` <span class="pill">${esc(x.who)}</span>`:""}</span><button class="x" data-delc="${esc(x.id)}" aria-label="Borrar">×</button></div>`).join("")).join("")+
  `<form id="fC" class="card" style="margin-top:18px"><label for="cT">Nuevo ítem</label><input id="cT" required placeholder="Ej.: comprar entradas del Coliseo"><div class="g2"><div><label for="cC">Lista</label><input id="cC" list="cats" value="Antes de viajar"><datalist id="cats">${Object.keys(cats).map(c=>`<option value="${esc(c)}">`).join("")}<option value="Equipaje"></datalist></div><div><label for="cW">Para</label><select id="cW"><option>Todos</option>${PEOPLE.map(p=>`<option>${p}</option>`).join("")}</select></div></div><button class="btn" style="margin-top:12px">Agregar</button></form>`}
 function vInfo(){const c=cfg(),rate=+(c.rates&&c.rates.EUR)||0;
  return `<h2>Info por país</h2><p class="sub">Lo básico de cada lugar del viaje. El 112 sirve para emergencias en toda la Unión Europea.</p>
@@ -288,11 +302,14 @@ document.addEventListener("click",async ev=>{const t=ev.target.closest("[data-ed
  else if(t.id==="addCoB"){const v=$("#addCo").value;if(v)setCfg({countries:[...cfg().countries,v]})}});
 document.addEventListener("keydown",ev=>{if(ev.key==="Enter"&&ev.target.matches(".row,.cal .c"))ev.target.click();if(ev.key==="Escape")close()});
 document.addEventListener("change",ev=>{const t=ev.target;
+ if(t.dataset.tk!==undefined){if(t.value)TK[t.dataset.tk]=t.value;else delete TK[t.dataset.tk];saveTK();render();return}
  if(t.dataset.chk){DONE[t.dataset.chk]=t.checked;try{localStorage.setItem("viaje-done",JSON.stringify(DONE))}catch(e){}render()}else if(false){const x=S.checklist.find(c=>c.id===t.dataset.chk);if(x){const{id,...rest}=x;write(()=>db.collection("checklist").doc(id).set(Object.assign(rest,{done:t.checked})))}}
  if(t.id==="rate"&&!db){S.config=Object.assign({},S.config,{rates:{EUR:+t.value||0}});save()}else if(t.id==="rate"){setCfg({rates:Object.assign({},cfg().rates,{EUR:+t.value||0})})}});
 document.addEventListener("input",ev=>{const t=ev.target,r=+($("#rate")&&$("#rate").value)||0;if(!r)return;
  if(t.id==="eur")$("#ars").value=t.value?Math.round(+t.value*r):"";if(t.id==="ars")$("#eur").value=t.value?(+t.value/r).toFixed(2):""});
-document.addEventListener("submit",async ev=>{if(ev.target.id!=="fC")return;ev.preventDefault();
+document.addEventListener("click",ev=>{const t=ev.target.closest("[data-deltk]");if(!t)return;TKX=TKX.filter(x=>x.id!==t.dataset.deltk);delete TK[t.dataset.deltk];saveTK();render()});
+document.addEventListener("submit",async ev=>{if(ev.target.id==="fTK"){ev.preventDefault();const tx=$("#tkT").value.trim();if(tx){TKX.push({id:"x"+Date.now().toString(36),text:tx,cat:$("#tkC").value.trim()||"Otros"});saveTK();render()}return}
+ if(ev.target.id!=="fC")return;ev.preventDefault();
  const d={text:$("#cT").value.trim(),cat:$("#cC").value.trim()||"General",who:$("#cW").value,done:false};if(d.text&&await write(()=>db.collection("checklist").add(d))){$("#cT").value=""}});
 $("#ov").addEventListener("click",ev=>{if(ev.target.id==="ov")close()});
 addEventListener("hashchange",()=>{if(route()==="hoy"&&!location.hash.includes("hoy"))dayCursor=today();render();scrollTo(0,0)});
