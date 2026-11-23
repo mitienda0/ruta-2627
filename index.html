@@ -77,7 +77,7 @@ h3.grp{color:var(--pri)}
 .cal .c.today{outline:2px solid var(--hot)}
 .cal .c b{font:700 14px Archivo;display:block}
 .cal .c i{font-style:normal;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
-.cal .c .city{color:var(--pri);font-weight:600}
+.cal .c .city{color:var(--pri);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;margin-bottom:2px}
 .cal .blank{min-height:74px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
 .line{display:flex;justify-content:space-between;gap:10px;align-items:center}
@@ -223,13 +223,13 @@ function vManana(){const t=addDays(today(),1),es=entries(t);const wake=es.find(e
 function staysOn(day){return (cfg().stays||[]).filter(s=>day>=s.from&&day<s.to)}
 function cityTxt(day){return staysOn(day).map(s=>s.city+(s.who&&s.who.length&&s.who.length<PEOPLE.length?" ("+whoTxt(s.who)+")":"")).join(" · ")}
 function vCal(){const c=cfg();let s=c.start,e=c.end;for(const it of S.items){if(it.date&&it.date<s)s=it.date;const z=it.endDate||it.date;if(z&&z>e)e=z}
- const city={};for(const it of S.items)if(it.type==="hotel"&&it.date&&mine(it)){let d=it.date;const end=it.endDate||it.date;let n=0;while(d<end&&n<60){city[d]=it.city||it.title;d=addDays(d,1);n++}}
+ const city={};
  for(const st of (c.stays||[])){let d=st.from,n=0;while(d<st.to&&n<60){city[d]=(city[d]?city[d]+" · ":"")+st.city;d=addDays(d,1);n++}}
  let[y,m]=s.split("-").map(Number);const[ey,em]=e.split("-").map(Number);let h=`<h2>Calendario</h2><p class="sub">${esc(shortDay(c.start))} → ${esc(shortDay(c.end))} · tocá un día para verlo</p>`;
  while(y<ey||y===ey&&m<=em){const first=new Date(y,m-1,1),dim=new Date(y,m,0).getDate(),off=(first.getDay()+6)%7;
   h+=`<h3>${first.toLocaleDateString("es-AR",{month:"long",year:"numeric"})}</h3><div class="cal">`+["L","M","M","J","V","S","D"].map(x=>`<div class="dn">${x}</div>`).join("")+`<div class="blank"></div>`.repeat(off);
   for(let d=1;d<=dim;d++){const ds=y+"-"+pad(m)+"-"+pad(d),es=entries(ds),inTrip=ds>=c.start&&ds<=c.end;
-   h+=`<div class="c ${inTrip?"trip":"out"} ${ds===today()?"today":""}" data-day="${ds}" tabindex="0"><b>${d}</b>${city[ds]?`<i class="city">${esc(city[ds])}</i>`:""}${es.slice(0,3).map(x=>`<i>${esc(x.time||"")} ${esc(x.it.title)}</i>`).join("")}</div>`}
+   h+=`<div class="c ${inTrip?"trip":"out"} ${ds===today()?"today":""}" data-day="${ds}" tabindex="0"><b>${d}</b>${city[ds]?`<i class="city">${esc(city[ds])}</i>`:""}${es.filter(x=>x.it.type!=="hotel"&&!x.it.split).slice(0,3).map(x=>`<i>${esc(x.time||"")} ${esc(x.it.title)}</i>`).join("")}</div>`}
   h+=`</div>`;m++;if(m>12){m=1;y++}}
  return h}
 function vRes(){const its=S.items.filter(it=>mine(it)&&RES_TYPES.includes(it.type)).sort((a,b)=>toMs(a.date,a.time,a.tz)-toMs(b.date,b.time,b.tz));
